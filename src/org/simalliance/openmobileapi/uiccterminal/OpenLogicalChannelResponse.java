@@ -1,4 +1,4 @@
-package org.simalliance.openmobileapi.terminal.service;
+package org.simalliance.openmobileapi.uiccterminal;
 
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -11,13 +11,13 @@ public class OpenLogicalChannelResponse implements Parcelable {
     private int mChannelNumber;
     private byte[] mSelectResponse;
 
-    public static final Creator<OpenLogicalChannelResponse> CREATOR = new Creator<OpenLogicalChannelResponse>() {
-        public OpenLogicalChannelResponse createFromParcel(Parcel in) {
-            return new OpenLogicalChannelResponse(in);
+    public static final Creator<org.simalliance.openmobileapi.uiccterminal.OpenLogicalChannelResponse> CREATOR = new Creator<org.simalliance.openmobileapi.uiccterminal.OpenLogicalChannelResponse>() {
+        public org.simalliance.openmobileapi.uiccterminal.OpenLogicalChannelResponse createFromParcel(Parcel in) {
+            return new org.simalliance.openmobileapi.uiccterminal.OpenLogicalChannelResponse(in);
         }
 
-        public OpenLogicalChannelResponse[] newArray(int size) {
-            return new OpenLogicalChannelResponse[size];
+        public org.simalliance.openmobileapi.uiccterminal.OpenLogicalChannelResponse[] newArray(int size) {
+            return new org.simalliance.openmobileapi.uiccterminal.OpenLogicalChannelResponse[size];
         }
     };
 
