@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="org.simalliance.openmobileapi.terminal.service"
+    package="org.simalliance.openmobileapi.uiccterminal"
     android:versionCode="1"
     android:versionName="1.0.0">
 
     <application android:label="UiccTerminalService">
         
         <service android:enabled="true"
-         		android:name="org.simalliance.openmobileapi.terminal.service.UiccTerminal"
-                android:process=":remote">
+                android:exported="true"
+         		android:name=".UiccTerminal">
             <intent-filter>
                 <action android:name="org.simalliance.openmobileapi.TERMINAL_DISCOVERY" />
             </intent-filter>

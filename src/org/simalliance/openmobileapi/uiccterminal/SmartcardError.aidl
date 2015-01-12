@@ -16,26 +16,6 @@
 /*
  * Contributed by: Giesecke & Devrient GmbH.
  */
+package org.simalliance.openmobileapi.uiccterminal;
 
-package org.simalliance.openmobileapi.terminal.service;
-
-/**
- * Generic exception of the smartcard system.
- */
-public class CardException extends Exception {
-
-	private static final long serialVersionUID = -5298933800369298346L;
-
-    public CardException(String message) {
-        super(message);
-    }
-
-    public CardException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public CardException(Throwable cause) {
-        super(cause);
-    }
-
-}
+parcelable SmartcardError;
