@@ -8,6 +8,7 @@ LOCAL_CERTIFICATE := platform
 
 LOCAL_JAVA_LIBRARIES := framework org.simalliance.openmobileapi
 
+LOCAL_PROGUARD_ENABLED := disabled
 LOCAL_DEX_PREOPT := false
 
 include $(BUILD_PACKAGE)
