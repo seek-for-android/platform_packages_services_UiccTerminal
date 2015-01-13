@@ -5,7 +5,9 @@
     android:versionName="1.0.0">
 
     <application android:label="UiccTerminalService">
-        
+
+        <uses-library android:name="org.simalliance.openmobileapi" android:required="true" />
+
         <service android:enabled="true"
                 android:exported="true"
          		android:name=".UiccTerminal">
