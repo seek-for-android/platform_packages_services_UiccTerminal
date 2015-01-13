@@ -6,6 +6,8 @@
 
     <application android:label="UiccTerminalService">
 
+        <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+
         <uses-library android:name="org.simalliance.openmobileapi" android:required="true" />
 
         <service android:name=".UiccTerminal"
