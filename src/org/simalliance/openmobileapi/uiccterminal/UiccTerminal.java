@@ -12,6 +12,7 @@ import android.util.Log;
 
 import com.android.internal.telephony.TelephonyProperties;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.ArrayList;
 import java.util.MissingResourceException;
@@ -127,8 +128,7 @@ public final class UiccTerminal extends Service {
                     p3 = 15;
                     break;
                 default:
-                    // TODO
-                    // throw new SecureElementException("Unknown SIM_IO command");
+                    throw new IOException("Unknown SIM_IO command");
             }
 
             if (filePath != null && filePath.length() > 0) {
@@ -318,7 +318,7 @@ public final class UiccTerminal extends Service {
             if (mAtr == null) {
                 String atr = manager.iccGetAtr();
                 Log.d(TAG, "atr = " + atr == null ? "" : atr);
-                if (atr != null && !atr.equals("")) {
+                if (atr != null && !"".equals(atr)) {
                     mAtr = stringToByteArray(atr);
                 }
             }
