@@ -177,7 +177,8 @@ public final class UiccTerminal extends Service {
      *
      * @return The index of the opened channel ID in the channelIds list.
      */
-    private org.simalliance.openmobileapi.service.OpenLogicalChannelResponse iccOpenLogicalChannel(String aid) throws Exception {
+    private org.simalliance.openmobileapi.service.OpenLogicalChannelResponse iccOpenLogicalChannel(
+            String aid) throws  CardException, NoSuchElementException, MissingResourceException {
         Log.d(TAG, "iccOpenLogicalChannel > " + aid);
         // Remove any previously stored selection response
         IccOpenLogicalChannelResponse response = manager.iccOpenLogicalChannel(aid);
