@@ -28,6 +28,8 @@ public final class UiccTerminal extends Service {
 
     private static final String TAG = "UiccTerminal";
 
+    private final ITerminalService.Stub mTerminalBinder = new TerminalServiceImplementation();
+
     private TelephonyManager manager = null;
 
     private List<Integer> channelIds;
@@ -50,120 +52,6 @@ public final class UiccTerminal extends Service {
 
         manager = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
     }
-
-    private final ITerminalService.Stub mTerminalBinder = new ITerminalService.Stub() {
-
-        @Override
-        public String getType() {
-            return UiccTerminal.getType();
-        }
-
-        @Override
-        public org.simalliance.openmobileapi.service.OpenLogicalChannelResponse internalOpenLogicalChannel(byte[] aid, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
-            String aidString;
-            if (aid == null) {
-                aidString = "";
-            } else {
-                aidString = byteArrayToString(aid, 0);
-            }
-
-            try {
-                return iccOpenLogicalChannel(aidString);
-            } catch (Exception e) {
-                error.setError(e.getClass(), e.getMessage());
-                throw new RemoteException(e.getMessage());
-            }
-        }
-
-        @Override
-        public void internalCloseLogicalChannel(int channelNumber, org.simalliance.openmobileapi.service.SmartcardError error)
-                throws RemoteException {
-            if (channelNumber == 0) {
-                return;
-            }
-            if (channelIds.get(channelNumber) == 0) {
-                error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
-                throw new RemoteException();
-            }
-            try {
-                if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
-                    throw new RemoteException("close channel failed");
-                }
-            } catch (Exception ex) {
-                error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
-                throw new RemoteException(ex.getMessage());
-            }
-            channelIds.set(channelNumber, 0);
-        }
-
-        @Override
-        public byte[] internalTransmit(byte[] command, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
-            Log.d(TAG, "internalTransmit > " + byteArrayToString(command, 0));
-            int cla = clearChannelNumber(command[0]) & 0xff;
-            int ins = command[1] & 0xff;
-            int p1 = command[2] & 0xff;
-            int p2 = command[3] & 0xff;
-            int p3 = -1;
-            if (command.length > 4) {
-                p3 = command[4] & 0xff;
-            }
-            String data = null;
-            if (command.length > 5) {
-                data = byteArrayToString(command, 5);
-            }
-
-            int channelNumber = parseChannelNumber(command[0]);
-
-            String response= "";
-            if (channelNumber == 0) {
-                try {
-                    response = manager.iccTransmitApduBasicChannel(
-                            cla, ins, p1, p2, p3, data);
-                } catch (Exception ex) {
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    throw new RemoteException("transmit command failed");
-                }
-            } else {
-                if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
-                    throw new RemoteException("channel not open");
-                }
-
-                try {
-                    response = manager.iccTransmitApduLogicalChannel(
-                            channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
-                } catch (Exception ex) {
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    throw new RemoteException("transmit command failed");
-                }
-            }
-            Log.d(TAG, "internalTransmit < " + response);
-            return stringToByteArray(response);
-        }
-
-        @Override
-        public byte[] getAtr() {
-            if (mAtr == null) {
-                String atr = manager.iccGetAtr();
-                Log.d(TAG, "atr = " + atr == null ? "" : atr);
-                if (atr != null && !atr.equals("")) {
-                    mAtr = stringToByteArray(atr);
-                }
-            }
-            return mAtr;
-        }
-
-        @Override
-        public boolean isCardPresent() throws RemoteException {
-            if (manager == null) {
-                return false;
-            }
-            String simState = SystemProperties
-                    .get(TelephonyProperties.PROPERTY_SIM_STATE);
-            return "READY".equals(simState);
-        }
-    };
 
     private byte[] stringToByteArray(String s) {
         byte[] b = new byte[s.length() / 2];
@@ -323,5 +211,123 @@ public final class UiccTerminal extends Service {
 
     public static String getType() {
         return "SIM";
+    }
+
+    /**
+     * The Terminal service interface implementation.
+     */
+    final class TerminalServiceImplementation extends ITerminalService.Stub {
+
+        @Override
+        public String getType() {
+            return UiccTerminal.getType();
+        }
+
+        @Override
+        public org.simalliance.openmobileapi.service.OpenLogicalChannelResponse internalOpenLogicalChannel(byte[] aid, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
+            String aidString;
+            if (aid == null) {
+                aidString = "";
+            } else {
+                aidString = byteArrayToString(aid, 0);
+            }
+
+            try {
+                return iccOpenLogicalChannel(aidString);
+            } catch (Exception e) {
+                e.printStackTrace();
+                error.setError(e.getClass(), e.getMessage());
+                throw new RemoteException(e.getMessage());
+            }
+        }
+
+        @Override
+        public void internalCloseLogicalChannel(int channelNumber, org.simalliance.openmobileapi.service.SmartcardError error)
+                throws RemoteException {
+            if (channelNumber == 0) {
+                return;
+            }
+            if (channelIds.get(channelNumber) == 0) {
+                error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
+                throw new RemoteException();
+            }
+            try {
+                if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
+                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
+                    throw new RemoteException("close channel failed");
+                }
+            } catch (Exception ex) {
+                error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
+                throw new RemoteException(ex.getMessage());
+            }
+            channelIds.set(channelNumber, 0);
+        }
+
+        @Override
+        public byte[] internalTransmit(byte[] command, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
+            Log.d(TAG, "internalTransmit > " + byteArrayToString(command, 0));
+            int cla = clearChannelNumber(command[0]) & 0xff;
+            int ins = command[1] & 0xff;
+            int p1 = command[2] & 0xff;
+            int p2 = command[3] & 0xff;
+            int p3 = -1;
+            if (command.length > 4) {
+                p3 = command[4] & 0xff;
+            }
+            String data = null;
+            if (command.length > 5) {
+                data = byteArrayToString(command, 5);
+            }
+
+            int channelNumber = parseChannelNumber(command[0]);
+
+            String response= "";
+            if (channelNumber == 0) {
+                try {
+                    response = manager.iccTransmitApduBasicChannel(
+                            cla, ins, p1, p2, p3, data);
+                } catch (Exception ex) {
+                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
+                    throw new RemoteException("transmit command failed");
+                }
+            } else {
+                if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
+                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
+                    throw new RemoteException("channel not open");
+                }
+
+                try {
+                    response = manager.iccTransmitApduLogicalChannel(
+                            channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
+                } catch (Exception ex) {
+                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
+                    throw new RemoteException("transmit command failed");
+                }
+            }
+            Log.d(TAG, "internalTransmit < " + response);
+            return stringToByteArray(response);
+        }
+
+        @Override
+        public byte[] getAtr() {
+            if (mAtr == null) {
+                String atr = manager.iccGetAtr();
+                Log.d(TAG, "atr = " + atr == null ? "" : atr);
+                if (atr != null && !atr.equals("")) {
+                    mAtr = stringToByteArray(atr);
+                }
+            }
+            return mAtr;
+        }
+
+        @Override
+        public boolean isCardPresent() throws RemoteException {
+            if (manager == null) {
+                return false;
+            }
+            String simState = SystemProperties
+                    .get(TelephonyProperties.PROPERTY_SIM_STATE);
+            return "READY".equals(simState);
+        }
     }
 }
