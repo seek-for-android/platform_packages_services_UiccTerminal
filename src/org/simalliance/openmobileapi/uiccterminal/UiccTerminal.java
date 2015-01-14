@@ -138,6 +138,7 @@ public final class UiccTerminal extends Service {
             return manager.iccExchangeSimIO(
                     fileID, ins, p1, p2, p3, currentSelectedFilePath);
         } catch (Exception e) {
+            Log.e(TAG, "Error while icc exchange IO", e);
             throw new RemoteException("SIM IO access error");
         }
     }
@@ -257,6 +258,7 @@ public final class UiccTerminal extends Service {
                     throw new RemoteException("close channel failed");
                 }
             } catch (Exception ex) {
+                Log.e(TAG, "Error while closing the logical channel", ex);
                 error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
                 throw new RemoteException(ex.getMessage());
             }
@@ -287,6 +289,7 @@ public final class UiccTerminal extends Service {
                     response = manager.iccTransmitApduBasicChannel(
                             cla, ins, p1, p2, p3, data);
                 } catch (Exception ex) {
+                    Log.e(TAG, "Error while transmitting APDU on basic chanel", ex);
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
                     throw new RemoteException("transmit command failed");
                 }
@@ -300,6 +303,7 @@ public final class UiccTerminal extends Service {
                     response = manager.iccTransmitApduLogicalChannel(
                             channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
                 } catch (Exception ex) {
+                    Log.e(TAG, "Error while transmitting apdu on logical channel", ex);
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
                     throw new RemoteException("transmit command failed");
                 }
