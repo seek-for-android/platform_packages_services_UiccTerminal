@@ -65,7 +65,7 @@ public final class UiccTerminal extends Service {
         if (b == null) {
             return "";
         }
-        StringBuffer s = new StringBuffer();
+        StringBuilder s = new StringBuilder();
         for (int i = start; i < b.length; i++) {
             s.append(Integer.toHexString(0x100 + (b[i] & 0xff)).substring(1));
         }
@@ -235,9 +235,9 @@ public final class UiccTerminal extends Service {
             try {
                 return iccOpenLogicalChannel(aidString);
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.e(TAG, "Error while opening logical channel", e);
                 error.setError(e.getClass(), e.getMessage());
-                throw new RemoteException(e.getMessage());
+                throw new RemoteException();
             }
         }
 
