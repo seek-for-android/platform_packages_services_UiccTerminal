@@ -71,7 +71,7 @@ public final class UiccTerminal extends Service {
                 return iccOpenLogicalChannel(aidString);
             } catch (Exception e) {
                 error.setError(e.getClass(), e.getMessage());
-                throw new RemoteException();
+                throw new RemoteException(e.getMessage());
             }
         }
 
@@ -88,11 +88,11 @@ public final class UiccTerminal extends Service {
             try {
                 if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
-                    throw new RemoteException();
+                    throw new RemoteException("close channel failed");
                 }
             } catch (Exception ex) {
                 error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
-                throw new RemoteException();
+                throw new RemoteException(ex.getMessage());
             }
             channelIds.set(channelNumber, 0);
         }
@@ -122,12 +122,12 @@ public final class UiccTerminal extends Service {
                             cla, ins, p1, p2, p3, data);
                 } catch (Exception ex) {
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    throw new RemoteException();
+                    throw new RemoteException("transmit command failed");
                 }
             } else {
                 if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
-                    throw new RemoteException();
+                    throw new RemoteException("channel not open");
                 }
 
                 try {
@@ -135,7 +135,7 @@ public final class UiccTerminal extends Service {
                             channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
                 } catch (Exception ex) {
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    throw new RemoteException();
+                    throw new RemoteException("transmit command failed");
                 }
             }
             Log.d(TAG, "internalTransmit < " + response);
@@ -147,7 +147,7 @@ public final class UiccTerminal extends Service {
             if (mAtr == null) {
                 String atr = manager.iccGetAtr();
                 Log.d(TAG, "atr = " + atr == null ? "" : atr);
-                if (atr != null && atr != "") {
+                if (atr != null && !atr.equals("")) {
                     mAtr = stringToByteArray(atr);
                 }
             }
@@ -161,7 +161,7 @@ public final class UiccTerminal extends Service {
             }
             String simState = SystemProperties
                     .get(TelephonyProperties.PROPERTY_SIM_STATE);
-            return simState.equals("READY");
+            return "READY".equals(simState);
         }
     };
 
@@ -193,7 +193,7 @@ public final class UiccTerminal extends Service {
      */
     private byte clearChannelNumber(byte cla) {
         // bit 7 determines which standard is used
-        boolean isFirstInterindustryClassByteCoding = ((cla & 0x40) == 0x00);
+        boolean isFirstInterindustryClassByteCoding = (cla & 0x40) == 0x00;
 
         if (isFirstInterindustryClassByteCoding) {
             // First Interindustry Class Byte Coding
@@ -219,7 +219,7 @@ public final class UiccTerminal extends Service {
      */
     //@Override TODO
     public byte[] simIOExchange(int fileID, String filePath, byte[] cmd)
-            throws Exception {
+            throws RemoteException {
         try {
             int ins = 0;
             int p1 = cmd[2] & 0xff;
@@ -247,11 +247,10 @@ public final class UiccTerminal extends Service {
                 currentSelectedFilePath = filePath;
             }
 
-            // TODO: check if transmitIccSimIO is really required
             return manager.iccExchangeSimIO(
                     fileID, ins, p1, p2, p3, currentSelectedFilePath);
         } catch (Exception e) {
-            throw new Exception("SIM IO access error");
+            throw new RemoteException("SIM IO access error");
         }
     }
 
@@ -265,7 +264,7 @@ public final class UiccTerminal extends Service {
      */
     private int parseChannelNumber(byte cla) {
         // bit 7 determines which standard is used
-        boolean isFirstInterindustryClassByteCoding = ((cla & 0x40) == 0x00);
+        boolean isFirstInterindustryClassByteCoding = (cla & 0x40) == 0x00;
 
         if (isFirstInterindustryClassByteCoding) {
             // First Interindustry Class Byte Coding
