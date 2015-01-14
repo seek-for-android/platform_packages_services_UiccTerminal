@@ -96,54 +96,6 @@ public final class UiccTerminal extends Service {
     }
 
     /**
-     * Exchanges APDU (SELECT, READ/WRITE) to the  given EF by File ID and file
-     * path via iccIO.
-     *
-     * The given command is checked and might be rejected.
-     *
-     * @param fileID
-     * @param filePath
-     * @param cmd
-     * @return
-     */
-    //@Override TODO
-    public byte[] simIOExchange(int fileID, String filePath, byte[] cmd)
-            throws RemoteException {
-        try {
-            int ins = 0;
-            int p1 = cmd[2] & 0xff;
-            int p2 = cmd[3] & 0xff;
-            int p3 = cmd[4] & 0xff;
-            switch(cmd[1]) {
-                case (byte) 0xB0:
-                    ins = 176;
-                    break;
-                case (byte) 0xB2:
-                    ins = 178;
-                    break;
-                case (byte) 0xA4:
-                    ins = 192;
-                    p1 = 0;
-                    p2 = 0;
-                    p3 = 15;
-                    break;
-                default:
-                    throw new IOException("Unknown SIM_IO command");
-            }
-
-            if (filePath != null && filePath.length() > 0) {
-                currentSelectedFilePath = filePath;
-            }
-
-            return manager.iccExchangeSimIO(
-                    fileID, ins, p1, p2, p3, currentSelectedFilePath);
-        } catch (Exception e) {
-            Log.e(TAG, "Error while icc exchange IO", e);
-            throw new RemoteException("SIM IO access error");
-        }
-    }
-
-    /**
      * Extracts the channel number from a CLA byte. Specified in GlobalPlatform
      * Card Specification 2.2.0.7: 11.1.4 Class Byte Coding.
      *
@@ -333,6 +285,39 @@ public final class UiccTerminal extends Service {
             String simState = SystemProperties
                     .get(TelephonyProperties.PROPERTY_SIM_STATE);
             return "READY".equals(simState);
+        }
+
+        @Override
+        public byte[] simIOExchange(int fileID, String filePath, byte[] cmd, org.simalliance.openmobileapi.service.SmartcardError error)
+                throws RemoteException {
+            int ins = 0;
+            int p1 = cmd[2] & 0xff;
+            int p2 = cmd[3] & 0xff;
+            int p3 = cmd[4] & 0xff;
+            switch(cmd[1]) {
+                case (byte) 0xB0:
+                    ins = 176;
+                    break;
+                case (byte) 0xB2:
+                    ins = 178;
+                    break;
+                case (byte) 0xA4:
+                    ins = 192;
+                    p1 = 0;
+                    p2 = 0;
+                    p3 = 15;
+                    break;
+                default:
+                    error.setError(IOException.class, "Unknown SIM_IO command");
+                    throw new RemoteException();
+            }
+
+            if (filePath != null && filePath.length() > 0) {
+                currentSelectedFilePath = filePath;
+            }
+
+            return manager.iccExchangeSimIO(
+                    fileID, ins, p1, p2, p3, currentSelectedFilePath);
         }
     }
 }
