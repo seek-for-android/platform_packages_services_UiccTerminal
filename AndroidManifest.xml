@@ -6,11 +6,14 @@
 
     <application android:label="UiccTerminalService">
 
+        <uses-permission android:name="android.permission.MODIFY_PHONE_STATE" />
+
         <uses-library android:name="org.simalliance.openmobileapi" android:required="true" />
 
-        <service android:enabled="true"
-                android:exported="true"
-         		android:name=".UiccTerminal">
+        <service android:name=".UiccTerminal"
+            android:enabled="true"
+            android:exported="true"
+            android:permission="org.simalliance.openmobileapi.SMARTCARD">
             <intent-filter>
                 <action android:name="org.simalliance.openmobileapi.TERMINAL_DISCOVERY" />
             </intent-filter>

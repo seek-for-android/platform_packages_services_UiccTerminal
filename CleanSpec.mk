@@ -1,3 +1,2 @@
-$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/app/UICCTerminal.apk)
-$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/APPS/UICCTerminal_intermediates)
-
+$(call add-clean-step, rm -f $(PRODUCT_OUT)/system/app/UiccTerminal/UiccTerminal.apk)
+$(call add-clean-step, rm -rf $(PRODUCT_OUT)/obj/APPS/UiccTerminal_intermediates)
