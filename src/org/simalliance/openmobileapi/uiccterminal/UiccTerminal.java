@@ -203,17 +203,17 @@ public final class UiccTerminal extends Service {
             }
             if (channelIds.get(channelNumber) == 0) {
                 error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
-                throw new RemoteException();
+                return;
             }
             try {
                 if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
-                    throw new RemoteException("close channel failed");
+                    return;
                 }
             } catch (Exception ex) {
                 Log.e(TAG, "Error while closing the logical channel", ex);
                 error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
-                throw new RemoteException(ex.getMessage());
+                return;
             }
             channelIds.set(channelNumber, 0);
         }
@@ -244,12 +244,12 @@ public final class UiccTerminal extends Service {
                 } catch (Exception ex) {
                     Log.e(TAG, "Error while transmitting APDU on basic chanel", ex);
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    throw new RemoteException("transmit command failed");
+                    return null;
                 }
             } else {
                 if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
-                    throw new RemoteException("channel not open");
+                    return null;
                 }
 
                 try {
@@ -258,7 +258,7 @@ public final class UiccTerminal extends Service {
                 } catch (Exception ex) {
                     Log.e(TAG, "Error while transmitting apdu on logical channel", ex);
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    throw new RemoteException("transmit command failed");
+                    return null;
                 }
             }
             Log.d(TAG, "internalTransmit < " + response);
