@@ -244,12 +244,12 @@ public final class UiccTerminal extends Service {
                 } catch (Exception ex) {
                     Log.e(TAG, "Error while transmitting APDU on basic chanel", ex);
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    return null;
+                    return new byte[0];
                 }
             } else {
                 if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
-                    return null;
+                    return new byte[0];
                 }
 
                 try {
@@ -258,7 +258,7 @@ public final class UiccTerminal extends Service {
                 } catch (Exception ex) {
                     Log.e(TAG, "Error while transmitting apdu on logical channel", ex);
                     error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
-                    return null;
+                    return new byte[0];
                 }
             }
             Log.d(TAG, "internalTransmit < " + response);
