@@ -191,7 +191,7 @@ public final class UiccTerminal extends Service {
             } catch (Exception e) {
                 Log.e(TAG, "Error while opening logical channel", e);
                 error.setError(e.getClass(), e.getMessage());
-                throw new RemoteException();
+                return null;
             }
         }
 
