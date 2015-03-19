@@ -1,8 +1,12 @@
 package org.simalliance.openmobileapi.uiccterminal;
 
+import android.app.AppGlobals;
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
 import android.os.SystemProperties;
@@ -29,11 +33,15 @@ public final class UiccTerminal extends Service {
 
     private static final String TAG = "UiccTerminal";
 
+    public static final String SIM_STATE_CHANGE_ACTION = "org.simalliance.openmobileapi.UiccTerminal";
+
     private final ITerminalService.Stub mTerminalBinder = new TerminalServiceImplementation();
 
     private TelephonyManager manager = null;
 
     private List<Integer> channelIds;
+
+    private BroadcastReceiver mSimReceiver;
 
     private String currentSelectedFilePath = "";
 
@@ -46,12 +54,19 @@ public final class UiccTerminal extends Service {
 
     @Override
     public void onCreate() {
+        registerSimStateChangedEvent(this);
         // Constructor
         channelIds = new ArrayList<Integer>();
         // Occupy channelIds[0] to avoid return channel number = 0 on openLogicalChannel
         channelIds.add(0xFFFFFFFF);
 
         manager = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
+    }
+
+    @Override
+    public void onDestroy() {
+        unregisterSimStateChangedEvent(getApplicationContext());
+        super.onDestroy();
     }
 
     private byte[] stringToByteArray(String s) {
@@ -118,9 +133,6 @@ public final class UiccTerminal extends Service {
         }
     }
 
-
-
-
     /**
      * Performs all the logic for opening a logical channel.
      *
@@ -165,6 +177,46 @@ public final class UiccTerminal extends Service {
 
     public static String getType() {
         return "SIM";
+    }
+
+    private void registerSimStateChangedEvent(Context context) {
+        Log.v(TAG, "register to android.intent.action.SIM_STATE_CHANGED event");
+
+        IntentFilter intentFilter = new IntentFilter(
+                "android.intent.action.SIM_STATE_CHANGED");
+        mSimReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                if ("android.intent.action.SIM_STATE_CHANGED".equals(intent
+                        .getAction())) {
+                    final Bundle extras = intent.getExtras();
+                    final boolean simReady = (extras != null)
+                            && "READY".equals(extras.getString("ss"));
+                    final boolean simLoaded = (extras != null)
+                            && "LOADED".equals(extras.getString("ss"));
+                    if (simReady) {
+                        Log.i(TAG, "SIM is ready. Checking access rules for"
+                                + " updates.");
+                        Intent i = new Intent(SIM_STATE_CHANGE_ACTION);
+                        sendBroadcast(i);
+                    } else if (simLoaded) {
+                        Log.i(TAG, "SIM is loaded. Checking access rules for"
+                                + " updates.");
+                        Intent i = new Intent(SIM_STATE_CHANGE_ACTION);
+                        sendBroadcast(i);
+                    }
+                }
+            }
+        };
+        context.registerReceiver(mSimReceiver, intentFilter);
+    }
+
+    private void unregisterSimStateChangedEvent(Context context) {
+        if (mSimReceiver != null) {
+            Log.v(TAG, "unregister SIM_STATE_CHANGED event");
+            context.unregisterReceiver(mSimReceiver);
+            mSimReceiver = null;
+        }
     }
 
     /**
@@ -284,6 +336,8 @@ public final class UiccTerminal extends Service {
             }
             String simState = SystemProperties
                     .get(TelephonyProperties.PROPERTY_SIM_STATE);
+
+            Log.d(TAG, "SIMSTATE" + simState + manager.hasIccCard() + manager.getSimState());
             return "READY".equals(simState);
         }
 
@@ -318,6 +372,11 @@ public final class UiccTerminal extends Service {
 
             return manager.iccExchangeSimIO(
                     fileID, ins, p1, p2, p3, currentSelectedFilePath);
+        }
+
+        @Override
+        public String getSEChangeAction() {
+            return SIM_STATE_CHANGE_ACTION;
         }
     }
 }
