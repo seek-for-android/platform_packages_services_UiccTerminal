@@ -22,9 +22,8 @@ import java.util.ArrayList;
 import java.util.MissingResourceException;
 import java.util.NoSuchElementException;
 
-
-import org.simalliance.openmobileapi.service.CardException;
 import org.simalliance.openmobileapi.service.ITerminalService;
+import org.simalliance.openmobileapi.service.SmartcardError;
 
 /**
  * Created by sevilser on 18/12/14.
@@ -142,7 +141,7 @@ public final class UiccTerminal extends Service {
      * @return The index of the opened channel ID in the channelIds list.
      */
     private org.simalliance.openmobileapi.service.OpenLogicalChannelResponse iccOpenLogicalChannel(
-            String aid) throws  CardException, NoSuchElementException, MissingResourceException {
+            String aid, SmartcardError error) throws  NoSuchElementException, MissingResourceException {
         Log.d(TAG, "iccOpenLogicalChannel > " + aid);
         // Remove any previously stored selection response
         IccOpenLogicalChannelResponse response = manager.iccOpenLogicalChannel(aid);
@@ -151,13 +150,15 @@ public final class UiccTerminal extends Service {
             Log.d(TAG, "iccOpenLogicalChannel failed.");
             // An error occured.
             if (status == IccOpenLogicalChannelResponse.STATUS_MISSING_RESOURCE) {
-                throw new MissingResourceException(
-                        "all channels are used", "", "");
+                error.setError(MissingResourceException.class, "all channels are used");
+                return null;
             }
             if (status == IccOpenLogicalChannelResponse.STATUS_NO_SUCH_ELEMENT) {
-                throw new NoSuchElementException("applet not found");
+                error.setError(NoSuchElementException.class, "applet not found");
+                return null;
             }
-            throw new CardException("open channel failed");
+            error.setError(RuntimeException.class, "open channel failed");
+            return null;
         }
         // Operation succeeded
         // Set the select response
@@ -237,14 +238,7 @@ public final class UiccTerminal extends Service {
             } else {
                 aidString = byteArrayToString(aid, 0);
             }
-
-            try {
-                return iccOpenLogicalChannel(aidString);
-            } catch (Exception e) {
-                Log.e(TAG, "Error while opening logical channel", e);
-                error.setError(e.getClass(), e.getMessage());
-                return null;
-            }
+            return iccOpenLogicalChannel(aidString, error);
         }
 
         @Override
@@ -254,17 +248,17 @@ public final class UiccTerminal extends Service {
                 return;
             }
             if (channelIds.get(channelNumber) == 0) {
-                error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
+                error.setError(RemoteException.class, "channel not open");
                 return;
             }
             try {
                 if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
+                    error.setError(RemoteException.class, "close channel failed");
                     return;
                 }
             } catch (Exception ex) {
                 Log.e(TAG, "Error while closing the logical channel", ex);
-                error.setError(org.simalliance.openmobileapi.service.CardException.class, "close channel failed");
+                error.setError(RemoteException.class, "close channel failed");
                 return;
             }
             channelIds.set(channelNumber, 0);
@@ -295,12 +289,12 @@ public final class UiccTerminal extends Service {
                             cla, ins, p1, p2, p3, data);
                 } catch (Exception ex) {
                     Log.e(TAG, "Error while transmitting APDU on basic chanel", ex);
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
+                    error.setError(RemoteException.class, "transmit command failed");
                     return new byte[0];
                 }
             } else {
                 if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "channel not open");
+                    error.setError(RemoteException.class, "channel not open");
                     return new byte[0];
                 }
 
@@ -309,7 +303,7 @@ public final class UiccTerminal extends Service {
                             channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
                 } catch (Exception ex) {
                     Log.e(TAG, "Error while transmitting apdu on logical channel", ex);
-                    error.setError(org.simalliance.openmobileapi.service.CardException.class, "transmit command failed");
+                    error.setError(RemoteException.class, "transmit command failed");
                     return new byte[0];
                 }
             }
