@@ -188,20 +188,14 @@ public final class UiccTerminal extends Service {
         mSimReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                if ("android.intent.action.SIM_STATE_CHANGED".equals(intent
-                        .getAction())) {
+                if ("android.intent.action.SIM_STATE_CHANGED".equals(intent.getAction())) {
                     final Bundle extras = intent.getExtras();
                     final boolean simReady = (extras != null)
                             && "READY".equals(extras.getString("ss"));
                     final boolean simLoaded = (extras != null)
                             && "LOADED".equals(extras.getString("ss"));
-                    if (simReady) {
-                        Log.i(TAG, "SIM is ready. Checking access rules for"
-                                + " updates.");
-                        Intent i = new Intent(SIM_STATE_CHANGE_ACTION);
-                        sendBroadcast(i);
-                    } else if (simLoaded) {
-                        Log.i(TAG, "SIM is loaded. Checking access rules for"
+                    if (simReady || simLoaded) {
+                        Log.i(TAG, "SIM is ready or loaded. Checking access rules for"
                                 + " updates.");
                         Intent i = new Intent(SIM_STATE_CHANGE_ACTION);
                         sendBroadcast(i);
