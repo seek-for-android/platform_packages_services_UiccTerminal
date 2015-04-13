@@ -6,6 +6,8 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.os.RemoteException;
@@ -48,7 +50,20 @@ public final class UiccTerminal extends Service {
 
     @Override
     public IBinder onBind(Intent intent) {
-        return mTerminalBinder;
+        String packageName = intent.getPackage();
+        try {
+            Log.d(TAG, "Package NAME: " + packageName);
+            String[] permissions = getPackageManager().getPackageInfo(packageName, PackageManager.GET_PERMISSIONS).requestedPermissions;
+            for (String permission : permissions) {
+                if ("org.simalliance.openmobileapi.BIND_TERMINAL".equals(permission)) {
+                    return mTerminalBinder;
+                }
+            }
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        Log.d(TAG, "Not allowed to bind");
+        return null;
     }
 
     @Override
