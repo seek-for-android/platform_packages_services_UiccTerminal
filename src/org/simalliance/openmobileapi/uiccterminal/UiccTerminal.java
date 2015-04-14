@@ -49,21 +49,8 @@ public final class UiccTerminal extends Service {
     private static byte[] mAtr = null;
 
     @Override
-    public IBinder onBind(Intent intent) {
-        String packageName = intent.getPackage();
-        try {
-            Log.d(TAG, "Package NAME: " + packageName);
-            String[] permissions = getPackageManager().getPackageInfo(packageName, PackageManager.GET_PERMISSIONS).requestedPermissions;
-            for (String permission : permissions) {
-                if ("org.simalliance.openmobileapi.BIND_TERMINAL".equals(permission)) {
-                    return mTerminalBinder;
-                }
-            }
-        } catch (PackageManager.NameNotFoundException e) {
-            e.printStackTrace();
-        }
-        Log.d(TAG, "Not allowed to bind");
-        return null;
+    public IBinder onBind(Intent intent) throws SecurityException {
+        return mTerminalBinder;
     }
 
     @Override
