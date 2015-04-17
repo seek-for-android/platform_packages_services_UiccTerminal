@@ -15,6 +15,7 @@ import android.util.Log;
 import java.io.IOException;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.MissingResourceException;
 import java.util.NoSuchElementException;
 
 import org.simalliance.openmobileapi.service.ITerminalService;
@@ -134,7 +135,7 @@ public final class UiccTerminal extends Service {
      * @return The index of the opened channel ID in the channelIds list.
      */
     private OpenLogicalChannelResponse iccOpenLogicalChannel(String aid)
-            throws  NoSuchElementException, MissingResourceException {
+            throws NoSuchElementException, MissingResourceException, IOException {
         Log.d(TAG, "iccOpenLogicalChannel > " + aid);
         // Remove any previously stored selection response
         IccOpenLogicalChannelResponse response = manager.iccOpenLogicalChannel(aid);
@@ -143,15 +144,12 @@ public final class UiccTerminal extends Service {
             Log.d(TAG, "iccOpenLogicalChannel failed.");
             // An error occured.
             if (status == IccOpenLogicalChannelResponse.STATUS_MISSING_RESOURCE) {
-                error.setError(MissingResourceException.class, "all channels are used");
                 return null;
             }
             if (status == IccOpenLogicalChannelResponse.STATUS_NO_SUCH_ELEMENT) {
-                error.setError(NoSuchElementException.class, "applet not found");
-                return null;
+                throw new NoSuchElementException("Applet not found");
             }
-            error.setError(RuntimeException.class, "open channel failed");
-            return null;
+            throw new IOException("iccOpenLogicalChannel failed");
         }
         // Operation succeeded
         // Set the select response
@@ -161,12 +159,12 @@ public final class UiccTerminal extends Service {
         for (int i = 1; i < channelIds.size(); i++) {
             if (channelIds.get(i) == 0) {
                 channelIds.set(i, response.getChannel());
-                return new org.simalliance.openmobileapi.service.OpenLogicalChannelResponse(i, response.getSelectResponse());
+                return new OpenLogicalChannelResponse(i, response.getSelectResponse());
             }
         }
         // If no channel ID is empty, append one at the end of the list.
         channelIds.add(response.getChannel());
-        return new org.simalliance.openmobileapi.service.OpenLogicalChannelResponse(channelIds.size() - 1, response.getSelectResponse());
+        return new OpenLogicalChannelResponse(channelIds.size() - 1, response.getSelectResponse());
     }
 
     public static String getType() {
@@ -188,9 +186,8 @@ public final class UiccTerminal extends Service {
                     final boolean simLoaded = (extras != null)
                             && "LOADED".equals(extras.getString("ss"));
                     if (simReady || simLoaded) {
-                        Log.i(TAG, "SIM is ready or loaded. Checking access rules for"
-                                + " updates.");
-                        Intent i = new Intent(SIM_STATE_CHANGE_ACTION);
+                        Log.i(TAG, "SIM is ready or loaded. Checking access rules for updates.");
+                        Intent i = new Intent(ACTION_SIM_STATE_CHANGED);
                         sendBroadcast(i);
                     }
                 }
@@ -218,91 +215,86 @@ public final class UiccTerminal extends Service {
         }
 
         @Override
-        public org.simalliance.openmobileapi.service.OpenLogicalChannelResponse internalOpenLogicalChannel(byte[] aid, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
+        public OpenLogicalChannelResponse internalOpenLogicalChannel(
+                byte[] aid,
+                SmartcardError error) throws RemoteException {
             String aidString;
             if (aid == null) {
                 aidString = "";
             } else {
                 aidString = byteArrayToString(aid, 0);
             }
-            return iccOpenLogicalChannel(aidString, error);
+            try {
+                return iccOpenLogicalChannel(aidString);
+            } catch (Exception e) {
+                error.set(e);
+                return null;
+            }
+
         }
 
         @Override
-        public void internalCloseLogicalChannel(int channelNumber, org.simalliance.openmobileapi.service.SmartcardError error)
+        public void internalCloseLogicalChannel(int channelNumber, SmartcardError error)
                 throws RemoteException {
-            if (channelNumber == 0) {
-                return;
-            }
-            if (channelIds.get(channelNumber) == 0) {
-                error.setError(RemoteException.class, "channel not open");
-                return;
-            }
             try {
-                if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
-                    error.setError(RemoteException.class, "close channel failed");
+                if (channelNumber == 0) {
                     return;
                 }
-            } catch (Exception ex) {
-                Log.e(TAG, "Error while closing the logical channel", ex);
-                error.setError(RemoteException.class, "close channel failed");
-                return;
+                if (channelIds.get(channelNumber) == 0) {
+                    throw new IllegalStateException("Channel not open");
+                }
+                if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
+                    throw new IOException("Close channel failed");
+                }
+                channelIds.set(channelNumber, 0);
+            } catch (Exception e) {
+                error.set(e);
             }
-            channelIds.set(channelNumber, 0);
         }
 
         @Override
-        public byte[] internalTransmit(byte[] command, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
-            Log.d(TAG, "internalTransmit > " + byteArrayToString(command, 0));
-            int cla = clearChannelNumber(command[0]) & 0xff;
-            int ins = command[1] & 0xff;
-            int p1 = command[2] & 0xff;
-            int p2 = command[3] & 0xff;
-            int p3 = -1;
-            if (command.length > 4) {
-                p3 = command[4] & 0xff;
-            }
-            String data = null;
-            if (command.length > 5) {
-                data = byteArrayToString(command, 5);
-            }
-
-            int channelNumber = parseChannelNumber(command[0]);
-
-            String response= "";
-            if (channelNumber == 0) {
-                try {
-                    response = manager.iccTransmitApduBasicChannel(
-                            cla, ins, p1, p2, p3, data);
-                } catch (Exception ex) {
-                    Log.e(TAG, "Error while transmitting APDU on basic chanel", ex);
-                    error.setError(RemoteException.class, "transmit command failed");
-                    return new byte[0];
+        public byte[] internalTransmit(byte[] command, SmartcardError error) throws RemoteException {
+            try {
+                Log.d(TAG, "internalTransmit > " + byteArrayToString(command, 0));
+                int cla = clearChannelNumber(command[0]) & 0xff;
+                int ins = command[1] & 0xff;
+                int p1 = command[2] & 0xff;
+                int p2 = command[3] & 0xff;
+                int p3 = -1;
+                if (command.length > 4) {
+                    p3 = command[4] & 0xff;
                 }
-            } else {
-                if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
-                    error.setError(RemoteException.class, "channel not open");
-                    return new byte[0];
+                String data = null;
+                if (command.length > 5) {
+                    data = byteArrayToString(command, 5);
                 }
 
-                try {
+                int channelNumber = parseChannelNumber(command[0]);
+
+                String response;
+                if (channelNumber == 0) {
+                    response = manager.iccTransmitApduBasicChannel(cla, ins, p1, p2, p3, data);
+                } else {
+                    if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
+                        throw new IOException("Channel not open");
+                    }
+
                     response = manager.iccTransmitApduLogicalChannel(
-                            channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
-                } catch (Exception ex) {
-                    Log.e(TAG, "Error while transmitting apdu on logical channel", ex);
-                    error.setError(RemoteException.class, "transmit command failed");
-                    return new byte[0];
+                                channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
                 }
+                Log.d(TAG, "internalTransmit < " + response);
+                return stringToByteArray(response);
+            } catch (Exception e) {
+                error.set(e);
+                return null;
             }
-            Log.d(TAG, "internalTransmit < " + response);
-            return stringToByteArray(response);
         }
 
         @Override
         public byte[] getAtr() {
             if (mAtr == null) {
                 String atr = manager.iccGetAtr();
-                Log.d(TAG, "atr = " + atr == null ? "" : atr);
+                Log.d(TAG, "atr = " + (atr == null ? "" : atr));
                 if (atr != null && !"".equals(atr)) {
                     mAtr = stringToByteArray(atr);
                 }
@@ -312,52 +304,49 @@ public final class UiccTerminal extends Service {
 
         @Override
         public boolean isCardPresent() throws RemoteException {
-            if (manager == null) {
-                return false;
-            }
-            String simState = SystemProperties
-                    .get(TelephonyProperties.PROPERTY_SIM_STATE);
-
-            Log.d(TAG, "SIMSTATE" + simState + manager.hasIccCard() + manager.getSimState());
-            return "READY".equals(simState);
+            return manager != null && manager.hasIccCard();
         }
 
         @Override
-        public byte[] simIOExchange(int fileID, String filePath, byte[] cmd, org.simalliance.openmobileapi.service.SmartcardError error)
+        public byte[] simIOExchange(int fileID, String filePath, byte[] cmd, SmartcardError error)
                 throws RemoteException {
-            int ins = 0;
-            int p1 = cmd[2] & 0xff;
-            int p2 = cmd[3] & 0xff;
-            int p3 = cmd[4] & 0xff;
-            switch(cmd[1]) {
-                case (byte) 0xB0:
-                    ins = 176;
-                    break;
-                case (byte) 0xB2:
-                    ins = 178;
-                    break;
-                case (byte) 0xA4:
-                    ins = 192;
-                    p1 = 0;
-                    p2 = 0;
-                    p3 = 15;
-                    break;
-                default:
-                    error.setError(IOException.class, "Unknown SIM_IO command");
-                    throw new RemoteException();
-            }
+            try {
+                int ins;
+                int p1 = cmd[2] & 0xff;
+                int p2 = cmd[3] & 0xff;
+                int p3 = cmd[4] & 0xff;
+                switch (cmd[1]) {
+                    case (byte) 0xB0:
+                        ins = 176;
+                        break;
+                    case (byte) 0xB2:
+                        ins = 178;
+                        break;
+                    case (byte) 0xA4:
+                        ins = 192;
+                        p1 = 0;
+                        p2 = 0;
+                        p3 = 15;
+                        break;
+                    default:
+                        throw new IOException("Unknown SIM_IO command");
+                }
 
-            if (filePath != null && filePath.length() > 0) {
-                currentSelectedFilePath = filePath;
-            }
+                if (filePath != null && filePath.length() > 0) {
+                    currentSelectedFilePath = filePath;
+                }
 
-            return manager.iccExchangeSimIO(
-                    fileID, ins, p1, p2, p3, currentSelectedFilePath);
+                return manager.iccExchangeSimIO(
+                        fileID, ins, p1, p2, p3, currentSelectedFilePath);
+            } catch (Exception e) {
+                error.set(e);
+                return null;
+            }
         }
 
         @Override
-        public String getSEChangeAction() {
-            return SIM_STATE_CHANGE_ACTION;
+        public String getSeStateChangedAction() {
+            return ACTION_SIM_STATE_CHANGED;
         }
     }
 }
