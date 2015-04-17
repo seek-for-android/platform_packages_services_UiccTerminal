@@ -26,7 +26,7 @@ import java.util.NoSuchElementException;
 
 import org.simalliance.openmobileapi.service.ITerminalService;
 import org.simalliance.openmobileapi.service.SmartcardError;
-
+import org.simalliance.openmobileapi.service.OpenLogicalChannelResponse;
 /**
  * Created by sevilser on 18/12/14.
  */
@@ -142,7 +142,7 @@ public final class UiccTerminal extends Service {
      *
      * @return The index of the opened channel ID in the channelIds list.
      */
-    private org.simalliance.openmobileapi.service.OpenLogicalChannelResponse iccOpenLogicalChannel(
+    private OpenLogicalChannelResponse iccOpenLogicalChannel(
             String aid, SmartcardError error) throws  NoSuchElementException, MissingResourceException {
         Log.d(TAG, "iccOpenLogicalChannel > " + aid);
         // Remove any previously stored selection response
@@ -170,12 +170,12 @@ public final class UiccTerminal extends Service {
         for (int i = 1; i < channelIds.size(); i++) {
             if (channelIds.get(i) == 0) {
                 channelIds.set(i, response.getChannel());
-                return new org.simalliance.openmobileapi.service.OpenLogicalChannelResponse(i, response.getSelectResponse());
+                return new OpenLogicalChannelResponse(i, response.getSelectResponse());
             }
         }
         // If no channel ID is empty, append one at the end of the list.
         channelIds.add(response.getChannel());
-        return new org.simalliance.openmobileapi.service.OpenLogicalChannelResponse(channelIds.size() - 1, response.getSelectResponse());
+        return new OpenLogicalChannelResponse(channelIds.size() - 1, response.getSelectResponse());
     }
 
     public static String getType() {
@@ -227,7 +227,7 @@ public final class UiccTerminal extends Service {
         }
 
         @Override
-        public org.simalliance.openmobileapi.service.OpenLogicalChannelResponse internalOpenLogicalChannel(byte[] aid, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
+        public OpenLogicalChannelResponse internalOpenLogicalChannel(byte[] aid, SmartcardError error) throws RemoteException {
             String aidString;
             if (aid == null) {
                 aidString = "";
@@ -238,7 +238,7 @@ public final class UiccTerminal extends Service {
         }
 
         @Override
-        public void internalCloseLogicalChannel(int channelNumber, org.simalliance.openmobileapi.service.SmartcardError error)
+        public void internalCloseLogicalChannel(int channelNumber, SmartcardError error)
                 throws RemoteException {
             if (channelNumber == 0) {
                 return;
@@ -261,7 +261,7 @@ public final class UiccTerminal extends Service {
         }
 
         @Override
-        public byte[] internalTransmit(byte[] command, org.simalliance.openmobileapi.service.SmartcardError error) throws RemoteException {
+        public byte[] internalTransmit(byte[] command, SmartcardError error) throws RemoteException {
             Log.d(TAG, "internalTransmit > " + byteArrayToString(command, 0));
             int cla = clearChannelNumber(command[0]) & 0xff;
             int ins = command[1] & 0xff;
@@ -332,7 +332,7 @@ public final class UiccTerminal extends Service {
         }
 
         @Override
-        public byte[] simIOExchange(int fileID, String filePath, byte[] cmd, org.simalliance.openmobileapi.service.SmartcardError error)
+        public byte[] simIOExchange(int fileID, String filePath, byte[] cmd, SmartcardError error)
                 throws RemoteException {
             int ins = 0;
             int p1 = cmd[2] & 0xff;
