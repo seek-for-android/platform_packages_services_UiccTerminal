@@ -217,6 +217,7 @@ public final class UiccTerminal extends Service {
         @Override
         public OpenLogicalChannelResponse internalOpenLogicalChannel(
                 byte[] aid,
+                byte p2,
                 SmartcardError error) throws RemoteException {
             String aidString;
             if (aid == null) {
