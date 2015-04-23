@@ -134,11 +134,16 @@ public final class UiccTerminal extends Service {
      *
      * @return The index of the opened channel ID in the channelIds list.
      */
-    private OpenLogicalChannelResponse iccOpenLogicalChannel(String aid)
+    private OpenLogicalChannelResponse iccOpenLogicalChannel(String aid, byte p2)
             throws NoSuchElementException, MissingResourceException, IOException {
         Log.d(TAG, "iccOpenLogicalChannel > " + aid);
         // Remove any previously stored selection response
-        IccOpenLogicalChannelResponse response = manager.iccOpenLogicalChannel(aid);
+        IccOpenLogicalChannelResponse response;
+        if (p2 == 0) {
+            response = manager.iccOpenLogicalChannel(aid);
+        } else {
+            response = manager.iccOpenLogicalChannel_P2(aid, p2);
+        }
         int status = response.getStatus();
         if (status != IccOpenLogicalChannelResponse.STATUS_NO_ERROR) {
             Log.d(TAG, "iccOpenLogicalChannel failed.");
@@ -226,7 +231,7 @@ public final class UiccTerminal extends Service {
                 aidString = byteArrayToString(aid, 0);
             }
             try {
-                return iccOpenLogicalChannel(aidString);
+                return iccOpenLogicalChannel(aidString, p2);
             } catch (Exception e) {
                 error.set(e);
                 return null;
