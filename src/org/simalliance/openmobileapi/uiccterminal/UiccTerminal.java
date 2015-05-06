@@ -233,6 +233,7 @@ public final class UiccTerminal extends Service {
             try {
                 return iccOpenLogicalChannel(aidString, p2);
             } catch (Exception e) {
+                Log.e(TAG, "Exception at internalOpenLogicalChannel", e);
                 error.set(e);
                 return null;
             }
@@ -254,6 +255,7 @@ public final class UiccTerminal extends Service {
                 }
                 channelIds.set(channelNumber, 0);
             } catch (Exception e) {
+                Log.e(TAG, "Exception at internalCloseLogicalChannel", e);
                 error.set(e);
             }
         }
@@ -291,6 +293,7 @@ public final class UiccTerminal extends Service {
                 Log.d(TAG, "internalTransmit < " + response);
                 return stringToByteArray(response);
             } catch (Exception e) {
+                Log.e(TAG, "Exception at internalTransmit", e);
                 error.set(e);
                 return null;
             }
@@ -345,6 +348,7 @@ public final class UiccTerminal extends Service {
                 return manager.iccExchangeSimIO(
                         fileID, ins, p1, p2, p3, currentSelectedFilePath);
             } catch (Exception e) {
+                Log.e(TAG, "Exception at simIOExchange", e);
                 error.set(e);
                 return null;
             }
