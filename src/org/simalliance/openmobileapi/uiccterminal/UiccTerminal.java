@@ -205,7 +205,7 @@ public final class UiccTerminal extends Service {
                 }
                 String data = null;
                 if (command.length > 5) {
-                    data = ByteArrayConverter.byteArrayToHexString(command, 5, p3);
+                    data = ByteArrayConverter.byteArrayToHexString(command, 5, command.length - 5);
                 }
 
                 int channelNumber = Util.parseChannelNumber(command[0]);
