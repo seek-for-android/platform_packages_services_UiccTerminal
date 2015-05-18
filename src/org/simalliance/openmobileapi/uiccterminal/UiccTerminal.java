@@ -18,9 +18,11 @@ import java.util.ArrayList;
 import java.util.MissingResourceException;
 import java.util.NoSuchElementException;
 
+import org.simalliance.openmobileapi.internal.ByteArrayConverter;
 import org.simalliance.openmobileapi.service.ITerminalService;
 import org.simalliance.openmobileapi.service.SmartcardError;
 import org.simalliance.openmobileapi.service.OpenLogicalChannelResponse;
+import org.simalliance.openmobileapi.internal.Util;
 
 public final class UiccTerminal extends Service {
 
@@ -28,32 +30,31 @@ public final class UiccTerminal extends Service {
 
     public static final String ACTION_SIM_STATE_CHANGED = "org.simalliance.openmobileapi.action.SIM_STATE_CHANGED";
 
-    private final ITerminalService.Stub mTerminalBinder = new TerminalServiceImplementation();
+    private TelephonyManager mTelephonyManager;
 
-    private TelephonyManager manager = null;
-
-    private List<Integer> channelIds;
+    private List<Integer> mChannelIds;
 
     private BroadcastReceiver mSimReceiver;
 
-    private String currentSelectedFilePath = "";
+    private String mCurrentSelectedFilePath;
 
-    private static byte[] mAtr = null;
+    private byte[] mAtr;
 
     @Override
     public IBinder onBind(Intent intent) {
-        return mTerminalBinder;
+        return new TerminalServiceImplementation();
     }
 
     @Override
     public void onCreate() {
-        registerSimStateChangedEvent(this);
+        mTelephonyManager = (TelephonyManager) getSystemService(Context.TELEPHONY_SERVICE);
         // Constructor
-        channelIds = new ArrayList<>();
-        // Occupy channelIds[0] to avoid return channel number = 0 on openLogicalChannel
-        channelIds.add(0xFFFFFFFF);
-
-        manager = (TelephonyManager) this.getSystemService(Context.TELEPHONY_SERVICE);
+        mChannelIds = new ArrayList<>();
+        // Occupy mChannelIds[0] to avoid return channel number = 0 on openLogicalChannel
+        mChannelIds.add(0xFFFFFFFF);
+        registerSimStateChangedEvent();
+        mCurrentSelectedFilePath = "";
+        mAtr = null;
     }
 
     @Override
@@ -62,77 +63,13 @@ public final class UiccTerminal extends Service {
         super.onDestroy();
     }
 
-    private byte[] stringToByteArray(String s) {
-        byte[] b = new byte[s.length() / 2];
-        for (int i = 0; i < b.length; i++) {
-            b[i] = (byte) Integer.parseInt(s.substring(2 * i, 2 * i + 2), 16);
-        }
-        return b;
-    }
-
-    private String byteArrayToString(byte[] b, int start) {
-        if (b == null) {
-            return "";
-        }
-        StringBuilder s = new StringBuilder();
-        for (int i = start; i < b.length; i++) {
-            s.append(Integer.toHexString(0x100 + (b[i] & 0xff)).substring(1));
-        }
-        return s.toString();
-    }
-
-    /**
-     * Clear the channel number.
-     *
-     * @param cla
-     *
-     * @return the cla without channel number
-     */
-    private byte clearChannelNumber(byte cla) {
-        // bit 7 determines which standard is used
-        boolean isFirstInterindustryClassByteCoding = (cla & 0x40) == 0x00;
-
-        if (isFirstInterindustryClassByteCoding) {
-            // First Interindustry Class Byte Coding
-            // see 11.1.4.1: channel number is encoded in the 2 rightmost bits
-            return (byte) (cla & 0xFC);
-        } else {
-            // Further Interindustry Class Byte Coding
-            // see 11.1.4.2: channel number is encoded in the 4 rightmost bits
-            return (byte) (cla & 0xF0);
-        }
-    }
-
-    /**
-     * Extracts the channel number from a CLA byte. Specified in GlobalPlatform
-     * Card Specification 2.2.0.7: 11.1.4 Class Byte Coding.
-     *
-     * @param cla
-     *            the command's CLA byte
-     * @return the channel number within [0x00..0x0F]
-     */
-    private int parseChannelNumber(byte cla) {
-        // bit 7 determines which standard is used
-        boolean isFirstInterindustryClassByteCoding = (cla & 0x40) == 0x00;
-
-        if (isFirstInterindustryClassByteCoding) {
-            // First Interindustry Class Byte Coding
-            // see 11.1.4.1: channel number is encoded in the 2 rightmost bits
-            return cla & 0x03;
-        } else {
-            // Further Interindustry Class Byte Coding
-            // see 11.1.4.2: channel number is encoded in the 4 rightmost bits
-            return (cla & 0x0F) + 4;
-        }
-    }
-
     /**
      * Performs all the logic for opening a logical channel.
      *
      * @param aid The AID to which the channel shall be opened, empty string to
      * specify "no AID".
      *
-     * @return The index of the opened channel ID in the channelIds list.
+     * @return The index of the opened channel ID in the mChannelIds list.
      */
     private OpenLogicalChannelResponse iccOpenLogicalChannel(String aid, byte p2)
             throws NoSuchElementException, MissingResourceException, IOException {
@@ -140,9 +77,9 @@ public final class UiccTerminal extends Service {
         // Remove any previously stored selection response
         IccOpenLogicalChannelResponse response;
         if (p2 == 0) {
-            response = manager.iccOpenLogicalChannel(aid);
+            response = mTelephonyManager.iccOpenLogicalChannel(aid);
         } else {
-            response = manager.iccOpenLogicalChannel_P2(aid, p2);
+            response = mTelephonyManager.iccOpenLogicalChannel_P2(aid, p2);
         }
         int status = response.getStatus();
         if (status != IccOpenLogicalChannelResponse.STATUS_NO_ERROR) {
@@ -158,37 +95,37 @@ public final class UiccTerminal extends Service {
         }
         // Operation succeeded
         // Set the select response
-        Log.d(TAG, "iccOpenLogicalChannel < " + byteArrayToString(response.getSelectResponse(), 0));
+        Log.d(TAG, "iccOpenLogicalChannel < "
+                        + ByteArrayConverter.byteArrayToHexString(response.getSelectResponse()));
         // Save channel ID. First check if there is any channelID which is empty
         // to reuse it.
-        for (int i = 1; i < channelIds.size(); i++) {
-            if (channelIds.get(i) == 0) {
-                channelIds.set(i, response.getChannel());
+        for (int i = 1; i < mChannelIds.size(); i++) {
+            if (mChannelIds.get(i) == 0) {
+                mChannelIds.set(i, response.getChannel());
                 return new OpenLogicalChannelResponse(i, response.getSelectResponse());
             }
         }
         // If no channel ID is empty, append one at the end of the list.
-        channelIds.add(response.getChannel());
-        return new OpenLogicalChannelResponse(channelIds.size() - 1, response.getSelectResponse());
+        mChannelIds.add(response.getChannel());
+        return new OpenLogicalChannelResponse(mChannelIds.size() - 1, response.getSelectResponse());
     }
 
     public static String getType() {
         return "SIM";
     }
 
-    private void registerSimStateChangedEvent(Context context) {
+    private void registerSimStateChangedEvent() {
         Log.v(TAG, "register to android.intent.action.SIM_STATE_CHANGED event");
 
-        IntentFilter intentFilter = new IntentFilter(
-                "android.intent.action.SIM_STATE_CHANGED");
+        IntentFilter intentFilter = new IntentFilter("android.intent.action.SIM_STATE_CHANGED");
         mSimReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 if ("android.intent.action.SIM_STATE_CHANGED".equals(intent.getAction())) {
-                    final Bundle extras = intent.getExtras();
-                    final boolean simReady = (extras != null)
+                    Bundle extras = intent.getExtras();
+                    boolean simReady = (extras != null)
                             && "READY".equals(extras.getString("ss"));
-                    final boolean simLoaded = (extras != null)
+                    boolean simLoaded = (extras != null)
                             && "LOADED".equals(extras.getString("ss"));
                     if (simReady || simLoaded) {
                         Log.i(TAG, "SIM is ready or loaded. Checking access rules for updates.");
@@ -198,7 +135,7 @@ public final class UiccTerminal extends Service {
                 }
             }
         };
-        context.registerReceiver(mSimReceiver, intentFilter);
+        registerReceiver(mSimReceiver, intentFilter);
     }
 
     private void unregisterSimStateChangedEvent(Context context) {
@@ -224,14 +161,8 @@ public final class UiccTerminal extends Service {
                 byte[] aid,
                 byte p2,
                 SmartcardError error) throws RemoteException {
-            String aidString;
-            if (aid == null) {
-                aidString = "";
-            } else {
-                aidString = byteArrayToString(aid, 0);
-            }
             try {
-                return iccOpenLogicalChannel(aidString, p2);
+                return iccOpenLogicalChannel(ByteArrayConverter.byteArrayToHexString(aid), p2);
             } catch (Exception e) {
                 Log.e(TAG, "Exception at internalOpenLogicalChannel", e);
                 error.set(e);
@@ -247,13 +178,13 @@ public final class UiccTerminal extends Service {
                 if (channelNumber == 0) {
                     return;
                 }
-                if (channelIds.get(channelNumber) == 0) {
+                if (mChannelIds.get(channelNumber) == 0) {
                     throw new IllegalStateException("Channel not open");
                 }
-                if (!manager.iccCloseLogicalChannel(channelIds.get(channelNumber))) {
+                if (!mTelephonyManager.iccCloseLogicalChannel(mChannelIds.get(channelNumber))) {
                     throw new IOException("Close channel failed");
                 }
-                channelIds.set(channelNumber, 0);
+                mChannelIds.set(channelNumber, 0);
             } catch (Exception e) {
                 Log.e(TAG, "Exception at internalCloseLogicalChannel", e);
                 error.set(e);
@@ -263,8 +194,8 @@ public final class UiccTerminal extends Service {
         @Override
         public byte[] internalTransmit(byte[] command, SmartcardError error) throws RemoteException {
             try {
-                Log.d(TAG, "internalTransmit > " + byteArrayToString(command, 0));
-                int cla = clearChannelNumber(command[0]) & 0xff;
+                Log.d(TAG, "internalTransmit > " + ByteArrayConverter.byteArrayToHexString(command));
+                int cla = Util.clearChannelNumber(command[0]) & 0xFF;
                 int ins = command[1] & 0xff;
                 int p1 = command[2] & 0xff;
                 int p2 = command[3] & 0xff;
@@ -274,24 +205,24 @@ public final class UiccTerminal extends Service {
                 }
                 String data = null;
                 if (command.length > 5) {
-                    data = byteArrayToString(command, 5);
+                    data = ByteArrayConverter.byteArrayToHexString(command, 5, p3);
                 }
 
-                int channelNumber = parseChannelNumber(command[0]);
+                int channelNumber = Util.parseChannelNumber(command[0]);
 
                 String response;
                 if (channelNumber == 0) {
-                    response = manager.iccTransmitApduBasicChannel(cla, ins, p1, p2, p3, data);
+                    response = mTelephonyManager.iccTransmitApduBasicChannel(cla, ins, p1, p2, p3, data);
                 } else {
-                    if ((channelNumber > 0) && (channelIds.get(channelNumber) == 0)) {
+                    if ((channelNumber > 0) && (mChannelIds.get(channelNumber) == 0)) {
                         throw new IOException("Channel not open");
                     }
 
-                    response = manager.iccTransmitApduLogicalChannel(
-                                channelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
+                    response = mTelephonyManager.iccTransmitApduLogicalChannel(
+                                mChannelIds.get(channelNumber), cla, ins, p1, p2, p3, data);
                 }
                 Log.d(TAG, "internalTransmit < " + response);
-                return stringToByteArray(response);
+                return ByteArrayConverter.hexStringToByteArray(response);
             } catch (Exception e) {
                 Log.e(TAG, "Exception at internalTransmit", e);
                 error.set(e);
@@ -302,10 +233,10 @@ public final class UiccTerminal extends Service {
         @Override
         public byte[] getAtr() {
             if (mAtr == null) {
-                String atr = manager.iccGetAtr();
+                String atr = mTelephonyManager.iccGetAtr();
                 Log.d(TAG, "atr = " + (atr == null ? "" : atr));
                 if (atr != null && !"".equals(atr)) {
-                    mAtr = stringToByteArray(atr);
+                    mAtr = ByteArrayConverter.hexStringToByteArray(atr);
                 }
             }
             return mAtr;
@@ -313,7 +244,7 @@ public final class UiccTerminal extends Service {
 
         @Override
         public boolean isCardPresent() throws RemoteException {
-            return manager != null && manager.hasIccCard();
+            return mTelephonyManager != null && mTelephonyManager.hasIccCard();
         }
 
         @Override
@@ -342,11 +273,11 @@ public final class UiccTerminal extends Service {
                 }
 
                 if (filePath != null && filePath.length() > 0) {
-                    currentSelectedFilePath = filePath;
+                    mCurrentSelectedFilePath = filePath;
                 }
 
-                return manager.iccExchangeSimIO(
-                        fileID, ins, p1, p2, p3, currentSelectedFilePath);
+                return mTelephonyManager.iccExchangeSimIO(
+                        fileID, ins, p1, p2, p3, mCurrentSelectedFilePath);
             } catch (Exception e) {
                 Log.e(TAG, "Exception at simIOExchange", e);
                 error.set(e);
