@@ -59,7 +59,7 @@ public final class UiccTerminal extends Service {
 
     @Override
     public void onDestroy() {
-        unregisterSimStateChangedEvent(getApplicationContext());
+        unregisterSimStateChangedEvent();
         super.onDestroy();
     }
 
@@ -138,10 +138,10 @@ public final class UiccTerminal extends Service {
         registerReceiver(mSimReceiver, intentFilter);
     }
 
-    private void unregisterSimStateChangedEvent(Context context) {
+    private void unregisterSimStateChangedEvent() {
         if (mSimReceiver != null) {
             Log.v(TAG, "unregister SIM_STATE_CHANGED event");
-            context.unregisterReceiver(mSimReceiver);
+            unregisterReceiver(mSimReceiver);
             mSimReceiver = null;
         }
     }
