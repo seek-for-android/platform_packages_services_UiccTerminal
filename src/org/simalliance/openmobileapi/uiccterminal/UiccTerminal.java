@@ -79,7 +79,7 @@ public final class UiccTerminal extends Service {
         if (p2 == 0) {
             response = mTelephonyManager.iccOpenLogicalChannel(aid);
         } else {
-            response = mTelephonyManager.iccOpenLogicalChannel_P2(aid, p2);
+            response = mTelephonyManager.iccOpenLogicalChannel(aid, p2);
         }
         int status = response.getStatus();
         if (status != IccOpenLogicalChannelResponse.STATUS_NO_ERROR) {
