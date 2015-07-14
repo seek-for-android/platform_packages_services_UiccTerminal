@@ -12,6 +12,7 @@
         <service android:name=".UiccTerminal"
             android:enabled="true"
             android:exported="true"
+            android:label="SIM"
             android:permission="org.simalliance.openmobileapi.BIND_TERMINAL">
             <intent-filter>
                 <action android:name="org.simalliance.openmobileapi.TERMINAL_DISCOVERY" />
