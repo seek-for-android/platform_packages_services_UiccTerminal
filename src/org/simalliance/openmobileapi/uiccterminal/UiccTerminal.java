@@ -129,10 +129,6 @@ public final class UiccTerminal extends Service {
         return new OpenLogicalChannelResponse(mChannelIds.size() - 1, response.getSelectResponse());
     }
 
-    public static String getType() {
-        return "SIM";
-    }
-
     private void registerSimStateChangedEvent() {
         Log.v(TAG, "register to android.intent.action.SIM_STATE_CHANGED event");
 
@@ -169,11 +165,6 @@ public final class UiccTerminal extends Service {
      * The Terminal service interface implementation.
      */
     final class TerminalServiceImplementation extends ITerminalService.Stub {
-
-        @Override
-        public String getType() {
-            return UiccTerminal.getType();
-        }
 
         @Override
         public OpenLogicalChannelResponse internalOpenLogicalChannel(
